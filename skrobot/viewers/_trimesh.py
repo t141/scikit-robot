@@ -10,6 +10,7 @@ class TrimeshSceneViewer(trimesh.viewer.SceneViewer):
 
     def __init__(self, resolution=None):
         self._links = []
+        self._coords = []
 
         self._redraw = True
         pyglet.clock.schedule_interval(self.on_update, 1 / 30)
@@ -49,6 +50,10 @@ class TrimeshSceneViewer(trimesh.viewer.SceneViewer):
             self._update_vertex_list()
 
             # apply latest angle-vector
+            for coords in self._coords:
+                transform = coords.worldcoords().T()
+                name = 'Coordinates/{}'.format(id(coords))
+                self.scene.graph.update(name, matrix=transform)
             for link in self._links:
                 if isinstance(link, model_module.Link):
                     link_list = [link]
@@ -90,8 +95,21 @@ class TrimeshSceneViewer(trimesh.viewer.SceneViewer):
             link_list = [link]
         elif isinstance(link, model_module.CascadedLink):
             link_list = link.link_list
+        elif isinstance(link, model_module.Coordinates):
+            with self.lock:
+                transform = link.worldcoords().T()
+                name = 'Coordinates/{}'.format(id(link))
+                self.scene.add_geometry(
+                    geometry=trimesh.creation.axis(),
+                    node_name=name,
+                    geom_name=name,
+                    transform=transform
+                )
+                self._coords.append(link)
+            self._redraw = True
+            return
         else:
-            raise TypeError('link must be Link or CascadedLink')
+            raise TypeError('link must be Link, CascadedLink or Coordinates')
 
         with self.lock:
             for l in link_list:
